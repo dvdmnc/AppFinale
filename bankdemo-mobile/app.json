@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "BankDemo",
+    "slug": "bankdemo-mobile",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1a1a2e"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bankdemo.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "BankDemo needs your location to find nearby ATMs.",
+        "NSFaceIDUsageDescription": "BankDemo uses Face ID to securely unlock the app."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.bankdemo.mobile",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    },
+    "plugins": [
+      "expo-location",
+      "expo-local-authentication",
+      "expo-secure-store",
+      "expo-sqlite"
+    ]
+  }
+}
