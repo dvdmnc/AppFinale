@@ -390,6 +390,7 @@ export default function DepositScreen({ navigation }: any) {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {step === 'source' && renderSourceStep()}
@@ -398,30 +399,30 @@ export default function DepositScreen({ navigation }: any) {
           {step === 'processing' && renderProcessingStep()}
           {step === 'success' && renderSuccessStep()}
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {/* Bottom CTA */}
-      {step === 'amount' && (
-        <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Button variant="primary" fullWidth onPress={handleAmountNext}>
-            Continuer
-          </Button>
-        </View>
-      )}
-      {step === 'confirm' && (
-        <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Button variant="primary" fullWidth loading={loading} onPress={handleConfirm}>
-            Confirmer le dépôt
-          </Button>
-        </View>
-      )}
-      {step === 'success' && (
-        <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Button variant="primary" fullWidth onPress={() => navigation.goBack()}>
-            Retour au tableau de bord
-          </Button>
-        </View>
-      )}
+        {/* Bottom CTA */}
+        {step === 'amount' && (
+          <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Button variant="primary" fullWidth onPress={handleAmountNext}>
+              Continuer
+            </Button>
+          </View>
+        )}
+        {step === 'confirm' && (
+          <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Button variant="primary" fullWidth loading={loading} onPress={handleConfirm}>
+              Confirmer le dépôt
+            </Button>
+          </View>
+        )}
+        {step === 'success' && (
+          <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Button variant="primary" fullWidth onPress={() => navigation.goBack()}>
+              Retour au tableau de bord
+            </Button>
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </View>
   );
 }

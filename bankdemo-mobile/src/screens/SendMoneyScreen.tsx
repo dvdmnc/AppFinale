@@ -15,8 +15,10 @@ import { api } from '../services/api';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Input, AmountInput } from '../components/ui/Input';
-import { ArrowBackIcon, PersonAddIcon, CheckIcon } from '../components/icons/BankIcons';
+import { ArrowBackIcon, PersonAddIcon, CheckIcon, FingerprintIcon, SecurityIcon } from '../components/icons/BankIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { authService } from '../services/auth';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 type Step = 'recipient' | 'amount' | 'confirm' | 'success';
 
@@ -46,6 +48,22 @@ export default function SendMoneyScreen({ navigation }: any) {
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
   const [newRecipientAccount, setNewRecipientAccount] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [verifyPassword, setVerifyPassword] = useState('');
+  const [verifyError, setVerifyError] = useState('');
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const enabled = await authService.isBiometricEnabled();
+      if (enabled) {
+        const hasHW = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        setBiometricsAvailable(hasHW && isEnrolled);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -110,10 +128,52 @@ export default function SendMoneyScreen({ navigation }: any) {
       return;
     }
     setAmountError('');
+    setVerified(false);
+    setVerifyPassword('');
+    setVerifyError('');
     setStep('confirm');
   };
 
+  const handleVerifyBiometric = async () => {
+    setVerifyLoading(true);
+    setVerifyError('');
+    try {
+      const success = await authService.biometricUnlock();
+      if (success) {
+        setVerified(true);
+      } else {
+        setVerifyError('Échec de la vérification biométrique');
+      }
+    } catch {
+      setVerifyError('Erreur lors de la vérification');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleVerifyPassword = async () => {
+    if (!verifyPassword) {
+      setVerifyError('Veuillez entrer votre mot de passe');
+      return;
+    }
+    setVerifyLoading(true);
+    setVerifyError('');
+    try {
+      await api.post('/verify-password', { password: verifyPassword });
+      setVerified(true);
+      setVerifyPassword('');
+    } catch (err: any) {
+      setVerifyError(err?.message || 'Mot de passe incorrect');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
   const handleSend = async () => {
+    if (!verified) {
+      showToast('Veuillez vérifier votre identité avant d\'envoyer', 'error');
+      return;
+    }
     setLoading(true);
     try {
       await api.post('/transactions/send', {
@@ -307,6 +367,64 @@ export default function SendMoneyScreen({ navigation }: any) {
                   </Text>
                 </View>
               </View>
+
+              {/* Identity verification */}
+              <View style={[styles.verifyCard, { backgroundColor: colors.card, borderColor: verified ? Brand.success : colors.border }, Shadows.card]}>
+                <View style={styles.verifyHeader}>
+                  <SecurityIcon size={20} color={verified ? Brand.success : colors.mutedForeground} />
+                  <Text style={[styles.verifyTitle, { color: colors.text }]}>
+                    {verified ? 'Identité vérifiée' : 'Vérification requise'}
+                  </Text>
+                </View>
+                {verified ? (
+                  <View style={styles.verifiedRow}>
+                    <View style={[styles.verifiedBadge, { backgroundColor: Brand.success + '18' }]}>
+                      <CheckIcon size={16} color={Brand.success} />
+                      <Text style={[styles.verifiedText, { color: Brand.success }]}>Vérifié</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={[styles.verifySubtitle, { color: colors.mutedForeground }]}>
+                      Confirmez votre identité pour autoriser ce transfert
+                    </Text>
+                    {biometricsAvailable && (
+                      <TouchableOpacity
+                        style={[styles.biometricBtn, { backgroundColor: Brand.primary + '12', borderColor: Brand.primary + '30' }]}
+                        onPress={handleVerifyBiometric}
+                        disabled={verifyLoading}
+                      >
+                        <FingerprintIcon size={22} color={Brand.primary} />
+                        <Text style={[styles.biometricBtnText, { color: Brand.primary }]}>Vérifier par biométrie</Text>
+                      </TouchableOpacity>
+                    )}
+                    {biometricsAvailable && (
+                      <View style={styles.verifyDivider}>
+                        <View style={[styles.verifyDividerLine, { backgroundColor: colors.border }]} />
+                        <Text style={[styles.verifyDividerText, { color: colors.mutedForeground }]}>ou</Text>
+                        <View style={[styles.verifyDividerLine, { backgroundColor: colors.border }]} />
+                      </View>
+                    )}
+                    <Input
+                      label="Mot de passe"
+                      placeholder="Entrez votre mot de passe"
+                      value={verifyPassword}
+                      onChangeText={(t) => { setVerifyPassword(t); setVerifyError(''); }}
+                      secureTextEntry
+                      error={verifyError}
+                    />
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      loading={verifyLoading}
+                      onPress={handleVerifyPassword}
+                      style={{ marginTop: Spacing.sm }}
+                    >
+                      Vérifier le mot de passe
+                    </Button>
+                  </View>
+                )}
+              </View>
             </View>
           )}
 
@@ -323,42 +441,43 @@ export default function SendMoneyScreen({ navigation }: any) {
             </Animated.View>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {/* Bottom CTA */}
-      {step !== 'success' ? (
-        <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Button
-            variant="primary"
-            fullWidth
-            loading={loading}
-            onPress={
-              step === 'recipient' ? handleRecipientNext :
-              step === 'amount' ? handleAmountNext :
-              handleSend
-            }
-            testID="send-button"
-          >
-            {step === 'confirm' ? 'Confirmer & Envoyer' : 'Continuer'}
-          </Button>
-          {step === 'confirm' && (
+        {/* Bottom CTA */}
+        {step !== 'success' ? (
+          <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
             <Button
-              variant="text"
+              variant="primary"
               fullWidth
-              onPress={() => setStep('amount')}
-              style={{ marginTop: Spacing.sm }}
+              loading={loading}
+              disabled={step === 'confirm' && !verified}
+              onPress={
+                step === 'recipient' ? handleRecipientNext :
+                step === 'amount' ? handleAmountNext :
+                handleSend
+              }
+              testID="send-button"
             >
-              Annuler
+              {step === 'confirm' ? 'Confirmer & Envoyer' : 'Continuer'}
             </Button>
-          )}
-        </View>
-      ) : (
-        <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Button variant="primary" fullWidth onPress={() => navigation.goBack()}>
-            Retour au tableau de bord
-          </Button>
-        </View>
-      )}
+            {step === 'confirm' && (
+              <Button
+                variant="text"
+                fullWidth
+                onPress={() => setStep('amount')}
+                style={{ marginTop: Spacing.sm }}
+              >
+                Annuler
+              </Button>
+            )}
+          </View>
+        ) : (
+          <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Button variant="primary" fullWidth onPress={() => navigation.goBack()}>
+              Retour au tableau de bord
+            </Button>
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -417,6 +536,30 @@ const styles = StyleSheet.create({
   heroLabel: { fontSize: 14, fontWeight: '500', marginBottom: 6 },
   heroValue: { fontSize: 42, fontWeight: '700', letterSpacing: -1 },
   heroRecipient: { fontSize: 15, marginTop: 6, fontWeight: '500' },
+  verifyCard: {
+    borderRadius: Radius.lg, padding: Spacing.lg, marginTop: Spacing.lg, borderWidth: 1,
+  },
+  verifyHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm,
+  },
+  verifyTitle: { fontSize: 16, fontWeight: '700' },
+  verifySubtitle: { fontSize: 13, marginBottom: Spacing.md },
+  verifiedRow: { marginTop: Spacing.xs },
+  verifiedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.md, alignSelf: 'flex-start',
+  },
+  verifiedText: { fontSize: 14, fontWeight: '600' },
+  biometricBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
+    paddingVertical: 14, borderRadius: Radius.md, borderWidth: 1, marginBottom: Spacing.sm,
+  },
+  biometricBtnText: { fontSize: 15, fontWeight: '600' },
+  verifyDivider: {
+    flexDirection: 'row', alignItems: 'center', marginVertical: Spacing.sm,
+  },
+  verifyDividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  verifyDividerText: { marginHorizontal: Spacing.sm, fontSize: 12 },
   bottomBar: {
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base,
     borderTopWidth: 1,
