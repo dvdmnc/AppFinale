@@ -3,6 +3,9 @@
 Application bancaire complète composée d'un backend **Laravel 11** et d'un frontend mobile **Expo SDK 54 / React Native**.
 
 ---
+## DEMO
+
+[Voir la vidéo de démo](./8db9f544-37ee-4129-bb37-721d6d837b93.mp4)
 
 ## Architecture
 
